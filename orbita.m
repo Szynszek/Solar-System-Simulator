@@ -6,27 +6,51 @@ clear
 %% Physical parameters
 G = 6.674e-11; % [N m^2/kg^2] Gravitational Constant
 
-bodies = {'Sun', 'Earth', 'Mars'};
-body_masses = [1.989e30, 5.972e24, 6.39e23]; % [kg] Body masses
+bodies = {'Sun','Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune'};
+body_masses = [1.989e30, 3.301e23, 4.867e24, 5.972e24, 6.39e23, 1.898e27, 5.683e26, 8.680e25, 1.024e26]; % [kg] Body masses
 
 %% Initial state
 % 2026-Mar-14 00:00:00.0000 TDB 
-r0_sun = [-3.824460420038474e8, -8.221795612587985e8, 1.820743242961960e7]; % [m] Initial Sun position 
-v0_sun = [1.212410605829541e1, 1.524019073237925e0, -2.429376929195760e-1]; % [m/s] Initial Sun velocity
-y0_sun = [r0_sun, v0_sun]; % Initial Sun orbital state vector
+r0_sun = [-382446042.0038474, -822179561.2587985, 18207432.4296196];
+v0_sun = [12.124106058295409, 1.524019073237925, -0.242937692919576];
+y0_sun = [r0_sun, v0_sun];
 
-r0_earth = [-1.480030443423478e11, 1.717356117508375e10, 1.827117222932540e7]; % [m] Initial Earth position
-v0_earth = [-4.086588222194061e3, -2.968485564088994e4, 7.705410358660458e-1]; % [m/s] Initial Earth velocity
-y0_earth = [r0_earth, v0_earth]; % Initial Earth orbital state vector
+r0_mercury = [-59484010545.39254, -14138364260.07398, 4350629859.97398];
+v0_mercury = [602.0470130047652, -45426.86225273868, -3766.897484204248];
+y0_mercury = [r0_mercury, v0_mercury];
 
-r0_mars = [1.754789161359977e11, -1.094239276088385e11, -6.569946055261977e9]; % [m] Initial Mars position
-v0_mars = [1.366713881087808e4, 2.269063003526492e4, 1.404018870871582e2];% [m/s] Initial Mars velocity 
-y0_mars = [r0_mars, v0_mars]; % Initial Mars orbital state vector
+r0_venus = [92153321309.08293, 55328018669.09437, -4549636525.406504];
+v0_venus = [-18265.144344563003, 29790.35226168731, 1463.605242061472];
+y0_venus = [r0_venus, v0_venus];
 
-y0 = [y0_sun, y0_earth, y0_mars];
+r0_earth = [-148003044342.3478, 17173561175.08375, 18271172.2293254];
+v0_earth = [-4086.5882221940615, -29684.85564088994, 0.7705410358660458];
+y0_earth = [r0_earth, v0_earth];
+
+r0_mars = [175478916135.9977, -109423927608.8385, -6569946055.261977];
+v0_mars = [13667.138810878081, 22690.63003526492, 140.4018870871582];
+y0_mars = [r0_mars, v0_mars];
+
+r0_jupiter = [-330177474985.5681, 709957964651.7996, 4444301040.555298];
+v0_jupiter = [-12003.139051740809, -4891.552424424635, 288.88157796239625];
+y0_jupiter = [r0_jupiter, v0_jupiter];
+
+r0_saturn = [1415642229227.292, 97616615972.22827, -58062166148.78422];
+v0_saturn = [-1196.585897214322, 9616.828736369385, -120.1764782487014];
+y0_saturn = [r0_saturn, v0_saturn];
+
+r0_uranus = [1440633774263.0889, 2531658218329.792, -9261249460.201502];
+v0_uranus = [-5968.7510279623775, 3050.593482898619, 88.60253443041711];
+y0_uranus = [r0_uranus, v0_uranus];
+
+r0_neptune = [4467414306173.692, 110809131133.7783, -105238080957.0405];
+v0_neptune = [-171.2848260947789, 5465.766243943168, -108.0812461311418];
+y0_neptune = [r0_neptune, v0_neptune];
+
+y0 = [y0_sun, y0_mercury, y0_venus, y0_earth, y0_mars, y0_jupiter, y0_saturn, y0_uranus, y0_neptune];
 
 %% Simulation configuration
-t_end = 31557600*2; % [s] Simulation duration
+t_end = 31557600*30; % [s] Simulation duration
 t_span = [0, t_end]; % [s] Simulation time span
 
 %% Numerical calculations
@@ -39,6 +63,7 @@ X = y_out(:, 1:6:end);
 Y = y_out(:, 2:6:end);
 Z = y_out(:, 3:6:end);
 
+% Orbital visualization
 figure
 hold on
 plot3(X, Y, Z, 'LineWidth', 1.5)
@@ -51,6 +76,19 @@ zlabel('Position Z [m]')
 title('Orbital Trajectory')
 hold off
 
+% Sun trajectory visualization
+figure
+hold on
+plot3(X(:,1), Y(:,1), Z(:,1), '-y', 'LineWidth', 1.5, 'DisplayName','Sun')
+plot3(0,0,0, '*r', 'DisplayName','Barycenter')
+legend
+axis equal
+grid on
+xlabel('Position X [m]')
+ylabel('Position Y [m]')
+zlabel('Position Z [m]')
+title('Sun orbital Trajectory')
+hold off
 
 %% Local functions
 function dydt = calc_derivative(t, y, G, body_masses)
