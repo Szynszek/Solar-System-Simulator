@@ -10,16 +10,17 @@ bodies = {'Sun', 'Earth', 'Mars'};
 body_masses = [1.989e30, 5.972e24, 6.39e23]; % [kg] Body masses
 
 %% Initial state
-r0_sun = [0, 0, 0]; % [m] Initial Sun position
-v0_sun = [0, 0, 0]; % [m/s] Initial Sun velocity
+% 2026-Mar-14 00:00:00.0000 TDB 
+r0_sun = [-3.824460420038474e8, -8.221795612587985e8, 1.820743242961960e7]; % [m] Initial Sun position 
+v0_sun = [1.212410605829541e1, 1.524019073237925e0, -2.429376929195760e-1]; % [m/s] Initial Sun velocity
 y0_sun = [r0_sun, v0_sun]; % Initial Sun orbital state vector
 
-r0_earth = [0, 1.498e11, 0]; % [m] Initial Earth position
-v0_earth = [-29.78e3 * 0.70, 0, 0]; % [m/s] Initial Earth velocity
+r0_earth = [-1.480030443423478e11, 1.717356117508375e10, 1.827117222932540e7]; % [m] Initial Earth position
+v0_earth = [-4.086588222194061e3, -2.968485564088994e4, 7.705410358660458e-1]; % [m/s] Initial Earth velocity
 y0_earth = [r0_earth, v0_earth]; % Initial Earth orbital state vector
 
-r0_mars = [0, 2.279e11, 0]; % [m] Initial Mars position
-v0_mars = [-24.07e3, 0, 0];% [m/s] Initial Mars velocity 
+r0_mars = [1.754789161359977e11, -1.094239276088385e11, -6.569946055261977e9]; % [m] Initial Mars position
+v0_mars = [1.366713881087808e4, 2.269063003526492e4, 1.404018870871582e2];% [m/s] Initial Mars velocity 
 y0_mars = [r0_mars, v0_mars]; % Initial Mars orbital state vector
 
 y0 = [y0_sun, y0_earth, y0_mars];
