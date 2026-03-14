@@ -6,8 +6,8 @@ clear
 %% Physical parameters
 G = 6.674e-11; % [N m^2/kg^2] Gravitational Constant
 
-bodies = {'Sun','Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune'};
-body_masses = [1.989e30, 3.301e23, 4.867e24, 5.972e24, 6.39e23, 1.898e27, 5.683e26, 8.680e25, 1.024e26]; % [kg] Body masses
+bodies = {'Sun', 'Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune'};
+body_masses = [1.989e30, 3.301e23, 4.867e24, 6.045e24, 6.39e23, 1.898e27, 5.683e26, 8.680e25, 1.024e26]; % [kg] Body masses (Earth+Moon mass)
 
 %% Initial state
 % 2026-Mar-14 00:00:00.0000 TDB 
@@ -23,8 +23,9 @@ r0_venus = [92153321309.08293, 55328018669.09437, -4549636525.406504];
 v0_venus = [-18265.144344563003, 29790.35226168731, 1463.605242061472];
 y0_venus = [r0_venus, v0_venus];
 
-r0_earth = [-148003044342.3478, 17173561175.08375, 18271172.2293254];
-v0_earth = [-4086.5882221940615, -29684.85564088994, 0.7705410358660458];
+% Changed to Earth-Moon barycenter
+r0_earth = [-148001259534.1553, 17169091157.38058, 17947884.04517062];
+v0_earth = [-4075.6727790927607, -29679.940956888782, 1.560242767398634];
 y0_earth = [r0_earth, v0_earth];
 
 r0_mars = [175478916135.9977, -109423927608.8385, -6569946055.261977];
