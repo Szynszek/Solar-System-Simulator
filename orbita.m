@@ -90,6 +90,22 @@ zlabel('Position Z [m]')
 title('Sun orbital Trajectory')
 hold off
 
+% Total energy and error visualization
+[E_tot, dE_rel] = calc_system_energy(y_out, G, body_masses);
+figure
+plot(t_out, E_tot)
+xlabel('Time [s]')
+ylabel('Total energy [J]')
+title('Total energy in time')
+grid on
+
+figure
+plot(t_out, dE_rel)
+xlabel('Time [s]')
+ylabel('Relative energy error [-]')
+title('Relative energy error in time')
+grid on
+
 %% Local functions
 function dydt = calc_derivative(t, y, G, body_masses)
     N = length(body_masses);
@@ -107,4 +123,39 @@ function dydt = calc_derivative(t, y, G, body_masses)
 
     dydt = [v; a];
     dydt = dydt(:);
+end
+
+function [E_tot, dE_rel] = calc_system_energy(y_out, G, body_masses)
+    T = size(y_out,1);
+    N = length(body_masses);
+
+    y_3d = reshape(y_out, T, 6, N); % Planet state per page
+    m_3d = reshape(body_masses, 1, 1, N);
+
+    r = y_3d(:,1:3,:); % Only positions
+    v = y_3d(:,4:6,:); % Only velocity
+    v2 = v.^2;
+    
+    E_k = 0.5 .* sum(v2,2) .* m_3d;
+    E_k = sum(E_k,3);
+    E_k = E_k(:);
+    
+    r_i = reshape(r, T, 3, N, 1); % 4d tensor
+    r_j = reshape(r, T, 3, 1, N); % 4d tensor
+    dr = r_j-r_i; % 4d tensor (Time, position, body_i, body_j)
+
+    dist = vecnorm(dr, 2, 2);
+    dist(dist==0) = inf;
+
+    m_i = reshape(body_masses, 1, 1, N, 1);
+    m_j = reshape(body_masses, 1, 1, 1, N);
+    
+    E_p = -G .* (m_i .* m_j) ./ dist;
+
+    E_p = sum(E_p, [3, 4]) / 2;
+    E_p = E_p(:);
+    
+    E_tot = E_k + E_p;
+
+    dE_rel = (E_tot - E_tot(1)) ./ abs(E_tot(1)); % Relative energy error
 end
