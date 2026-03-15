@@ -4,13 +4,12 @@ close all
 clear
 
 %% Physical parameters
-G = 6.674e-11; % [N m^2/kg^2] Gravitational Constant
 AU = 1.495978707e11; % [m] Astronomical unit 
 
-
 bodies = {'Sun', 'Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune'};
-body_masses = [1.989e30, 3.301e23, 4.867e24, 6.045e24, 6.39e23, 1.898e27, 5.683e26, 8.680e25, 1.024e26]; % [kg] Body masses (Earth+Moon mass)
-body_masses = reshape(body_masses, 1, 1, []);
+
+body_mu = [132712440041.93938, 22031.86855, 22031.86855, 398600.435436+4902.800066, 42828.375662, 126686531.900, 37931206.234, 5793950.6103, 6835099.97] .* 1e9; % [m3/s2] Standard gravitational parameter (Earth + Moon)
+body_mu = reshape(body_mu, 1, 1, []);
 
 %% Initial state
 % 2026-Mar-14 00:00:00.0000 TDB 
@@ -59,7 +58,7 @@ t_end = 31557600*30; % [s] Simulation duration
 t_span = [0, t_end]; % [s] Simulation time span
 
 %% Numerical calculations
-dt = 3600;
+dt = 3600; % [s] Simulation time step size
 num_steps = round(t_end / dt);
 t_out = linspace(0, t_end, num_steps+1);
 
@@ -70,12 +69,12 @@ y_formatted = reshape(y0, 6, N);
 
 r = y_formatted(1:3,:);
 v = y_formatted(4:6,:);
-a = calc_acceleration(r, v, G, body_masses);
+a = calc_acceleration(r, v, body_mu);
 
 for i = 1 : num_steps
     v_half = v + a .* (dt/2);
     r = r + v_half .* dt;
-    a = calc_acceleration(r, v_half, G, body_masses);
+    a = calc_acceleration(r, v_half, body_mu);
     v = v_half + a .* (dt/2);
     y_out(i+1,:) = reshape([r;v],1 , []);
 end
@@ -113,7 +112,7 @@ title('Sun orbital trajectory')
 hold off
 
 % Total energy and error visualization
-[E_tot, dE_rel] = calc_system_energy(y_out, G, body_masses);
+[E_tot, dE_rel] = calc_system_energy(y_out, body_mu);
 figure
 plot(t_out, E_tot)
 xlabel('Time [s]')
@@ -129,7 +128,7 @@ title('Relative energy error in time')
 grid on
 
 % Eccentricity and Semi-major axis change visualization
-[a_out, e_out] = calc_kepler_elements(y_out, G, body_masses);
+[a_out, e_out] = calc_kepler_elements(y_out, body_mu);
 
 subplot(2,1,1)
 hold on
@@ -155,9 +154,10 @@ hold off
 
 %% Local functions
 
-function [E_tot, dE_rel] = calc_system_energy(y_out, G, body_masses)
+function [E_tot, dE_rel] = calc_system_energy(y_out, body_mu)
     T = size(y_out,1);
-    N = size(body_masses, 3);
+    N = size(body_mu, 3);
+    G = 6.674e-11; % [N m^2/kg^2] Gravitational Constant
 
     y_3d = reshape(y_out, T, 6, N); % Planet state per page
 
@@ -165,7 +165,7 @@ function [E_tot, dE_rel] = calc_system_energy(y_out, G, body_masses)
     v = y_3d(:,4:6,:); % Only velocity
     v2 = v.^2;
     
-    E_k = 0.5 .* sum(v2,2) .* body_masses;
+    E_k = 0.5 .* sum(v2,2) .* (body_mu ./ G);
     E_k = sum(E_k,3);
     E_k = E_k(:);
     
@@ -176,10 +176,10 @@ function [E_tot, dE_rel] = calc_system_energy(y_out, G, body_masses)
     dist = vecnorm(dr, 2, 2);
     dist(dist==0) = inf;
 
-    m_i = reshape(body_masses, 1, 1, N, 1);
-    m_j = reshape(body_masses, 1, 1, 1, N);
+    mu_i = reshape(body_mu, 1, 1, N, 1);
+    mu_j = reshape(body_mu, 1, 1, 1, N);
     
-    E_p = -G .* (m_i .* m_j) ./ dist;
+    E_p = -(mu_i .* mu_j) ./ (dist .* G);
 
     E_p = sum(E_p, [3, 4]) / 2;
     E_p = E_p(:);
@@ -189,9 +189,9 @@ function [E_tot, dE_rel] = calc_system_energy(y_out, G, body_masses)
     dE_rel = (E_tot - E_tot(1)) ./ abs(E_tot(1)); % Relative energy error
 end
 
-function [a_out, e_out] = calc_kepler_elements(y_out, G, body_masses)
+function [a_out, e_out] = calc_kepler_elements(y_out, body_mu)
 
-    N = size(body_masses, 3);
+    N = size(body_mu, 3);
     T = size(y_out, 1);
     y_3d = reshape(y_out, T, 6, N);
     y_sun = y_out(:, 1:6);
@@ -201,9 +201,7 @@ function [a_out, e_out] = calc_kepler_elements(y_out, G, body_masses)
     r_rel = y_helio(:, 1:3, 2:N); % without page with sun
     v_rel = y_helio(:, 4:6, 2:N); % without page with sun
     
-    m_sun = body_masses(:,:,1);
-    m_planets = body_masses(:,:, 2:N);
-    mu = G .* (m_planets + m_sun);
+    mu = body_mu(:,:,2:N) + body_mu(:,:,1); % mu = G * (m_p + M_s)
     
     r_norm = vecnorm(r_rel, 2, 2);
     v_norm = vecnorm(v_rel, 2, 2);
@@ -222,21 +220,21 @@ function [a_out, e_out] = calc_kepler_elements(y_out, G, body_masses)
     
 end
 
-function a = calc_acceleration(r, v, G, body_masses)
+function a = calc_acceleration(r, v, body_mu)
 
     c = 299792458; % [m/s] Speed of light
-    N = size(body_masses, 3);
+    N = size(body_mu, 3);
     
     r_i = reshape(r, 3, N, 1);
     r_j = reshape(r, 3, 1, N);
     dr = r_j-r_i;
     dist = vecnorm(dr,2,1);
     dist(dist == 0) = inf;
-    da = G .* body_masses .*dr ./dist.^3;
+    da = body_mu .*dr ./dist.^3;
     a_newton = sum(da,3);
     a_newton = squeeze(a_newton);
     
-    m_sun = body_masses(:,:,1);
+    mu = body_mu(:,:,1);
     r_sun = r(:, 1);
     v_sun = v(:, 1);
 
@@ -247,12 +245,9 @@ function a = calc_acceleration(r, v, G, body_masses)
     v_norm = vecnorm(v_rel, 2, 1);
 
     r_norm(1) = inf;
-
     
-    mu = G * m_sun;
     r_dot_v = sum((r_rel .* v_rel), 1);
     
-
     a_GR = mu ./ (c^2 .* r_norm.^3) .* ((4 * mu ./ r_norm - v_norm.^2) .* r_rel + 4 .* (r_dot_v) .* v_rel); % Schwarzschild solution
 
     a = a_newton + a_GR;
