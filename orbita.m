@@ -5,7 +5,8 @@ clear
 
 %% Physical parameters
 G = 6.674e-11; % [N m^2/kg^2] Gravitational Constant
-AU = 1.495978707e11; % [m]
+AU = 1.495978707e11; % [m] Astronomical unit 
+
 
 bodies = {'Sun', 'Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune'};
 body_masses = [1.989e30, 3.301e23, 4.867e24, 6.045e24, 6.39e23, 1.898e27, 5.683e26, 8.680e25, 1.024e26]; % [kg] Body masses (Earth+Moon mass)
@@ -58,7 +59,7 @@ t_end = 31557600*30; % [s] Simulation duration
 t_span = [0, t_end]; % [s] Simulation time span
 
 %% Numerical calculations
-dt = 3600*12;
+dt = 3600;
 num_steps = round(t_end / dt);
 t_out = linspace(0, t_end, num_steps+1);
 
@@ -69,12 +70,12 @@ y_formatted = reshape(y0, 6, N);
 
 r = y_formatted(1:3,:);
 v = y_formatted(4:6,:);
-a = calc_acceleration(r, G, body_masses);
+a = calc_acceleration(r, v, G, body_masses);
 
 for i = 1 : num_steps
     v_half = v + a .* (dt/2);
     r = r + v_half .* dt;
-    a = calc_acceleration(r, G, body_masses);
+    a = calc_acceleration(r, v_half, G, body_masses);
     v = v_half + a .* (dt/2);
     y_out(i+1,:) = reshape([r;v],1 , []);
 end
@@ -221,15 +222,39 @@ function [a_out, e_out] = calc_kepler_elements(y_out, G, body_masses)
     
 end
 
-function a = calc_acceleration(r, G, body_masses)
-    N = size(body_masses, 3);
+function a = calc_acceleration(r, v, G, body_masses)
 
+    c = 299792458; % [m/s] Speed of light
+    N = size(body_masses, 3);
+    
     r_i = reshape(r, 3, N, 1);
     r_j = reshape(r, 3, 1, N);
     dr = r_j-r_i;
     dist = vecnorm(dr,2,1);
     dist(dist == 0) = inf;
     da = G .* body_masses .*dr ./dist.^3;
-    a = sum(da,3);
-    a = squeeze(a);
+    a_newton = sum(da,3);
+    a_newton = squeeze(a_newton);
+    
+    m_sun = body_masses(:,:,1);
+    r_sun = r(:, 1);
+    v_sun = v(:, 1);
+
+    r_rel = r - r_sun;
+    v_rel = v - v_sun;
+    
+    r_norm = vecnorm(r_rel, 2, 1);
+    v_norm = vecnorm(v_rel, 2, 1);
+
+    r_norm(1) = inf;
+
+    
+    mu = G * m_sun;
+    r_dot_v = sum((r_rel .* v_rel), 1);
+    
+
+    a_GR = mu ./ (c^2 .* r_norm.^3) .* ((4 * mu ./ r_norm - v_norm.^2) .* r_rel + 4 .* (r_dot_v) .* v_rel); % Schwarzschild solution
+
+    a = a_newton + a_GR;
+
 end
