@@ -51,16 +51,33 @@ v0_neptune = [-171.2848260947789, 5465.766243943168, -108.0812461311418];
 y0_neptune = [r0_neptune, v0_neptune];
 
 y0 = [y0_sun, y0_mercury, y0_venus, y0_earth, y0_mars, y0_jupiter, y0_saturn, y0_uranus, y0_neptune];
-y0 = y0(:);
+
 
 %% Simulation configuration
 t_end = 31557600*30; % [s] Simulation duration
 t_span = [0, t_end]; % [s] Simulation time span
 
 %% Numerical calculations
-physics_handle = @(t,y) calc_derivative(t, y, G, body_masses);
-options = odeset('RelTol', 1e-9, 'AbsTol', 1e-9);
-[t_out, y_out] = ode45(physics_handle, t_span, y0, options);
+dt = 3600*12;
+num_steps = round(t_end / dt);
+t_out = linspace(0, t_end, num_steps+1);
+
+N = length(bodies);
+y_out = zeros(num_steps+1, 6*N);
+y_out(1,:) = y0;
+y_formatted = reshape(y0, 6, N);
+
+r = y_formatted(1:3,:);
+v = y_formatted(4:6,:);
+a = calc_acceleration(r, G, body_masses);
+
+for i = 1 : num_steps
+    v_half = v + a .* (dt/2);
+    r = r + v_half .* dt;
+    a = calc_acceleration(r, G, body_masses);
+    v = v_half + a .* (dt/2);
+    y_out(i+1,:) = reshape([r;v],1 , []);
+end
 
 %% Visualization
 X = y_out(:, 1:6:end);
@@ -135,26 +152,7 @@ title('Semi-major axis in years')
 legend
 hold off
 
-
-
 %% Local functions
-function dydt = calc_derivative(t, y, G, body_masses)
-    N = size(body_masses, 3);
-    y_formatted = reshape(y, 6, N);
-    r = y_formatted(1:3,:);
-    v = y_formatted(4:6,:);
-    r_i = reshape(r, 3, N, 1);
-    r_j = reshape(r, 3, 1, N);
-    dr = r_j-r_i;
-    dist = vecnorm(dr,2,1);
-    dist(dist == 0) = inf;
-    da = G .* body_masses .*dr ./dist.^3;
-    a = sum(da,3);
-    a = squeeze(a);
-
-    dydt = [v; a];
-    dydt = dydt(:);
-end
 
 function [E_tot, dE_rel] = calc_system_energy(y_out, G, body_masses)
     T = size(y_out,1);
@@ -221,4 +219,17 @@ function [a_out, e_out] = calc_kepler_elements(y_out, G, body_masses)
     e_out = vecnorm(e_vec, 2, 2);
     e_out = squeeze(e_out);
     
+end
+
+function a = calc_acceleration(r, G, body_masses)
+    N = size(body_masses, 3);
+
+    r_i = reshape(r, 3, N, 1);
+    r_j = reshape(r, 3, 1, N);
+    dr = r_j-r_i;
+    dist = vecnorm(dr,2,1);
+    dist(dist == 0) = inf;
+    da = G .* body_masses .*dr ./dist.^3;
+    a = sum(da,3);
+    a = squeeze(a);
 end
