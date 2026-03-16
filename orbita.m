@@ -8,7 +8,7 @@ AU = 1.495978707e11; % [m] Astronomical unit
 
 bodies = {'Sun', 'Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune'};
 
-body_mu = [132712440041.93938, 22031.86855, 22031.86855, 398600.435436+4902.800066, 42828.375662, 126686531.900, 37931206.234, 5793950.6103, 6835099.97] .* 1e9; % [m3/s2] Standard gravitational parameter (Earth + Moon)
+body_mu = [132712440041.93938, 22031.86855, 324858.592, 398600.435436+4902.800066, 42828.375662, 126686531.900, 37931206.234, 5793950.6103, 6835099.97] .* 1e9; % [m3/s2] Standard gravitational parameter (Earth + Moon)
 body_mu = reshape(body_mu, 1, 1, []);
 
 %% Initial state
@@ -58,7 +58,7 @@ t_end = 31557600*30; % [s] Simulation duration
 t_span = [0, t_end]; % [s] Simulation time span
 
 %% Numerical calculations
-dt = 3600; % [s] Simulation time step size
+dt = 1800; % [s] Simulation time step size
 num_steps = round(t_end / dt);
 t_out = linspace(0, t_end, num_steps+1);
 
@@ -79,7 +79,7 @@ for i = 1 : num_steps
     y_out(i+1,:) = reshape([r;v],1 , []);
 end
 
-%% Visualization
+% %% Visualization
 X = y_out(:, 1:6:end);
 Y = y_out(:, 2:6:end);
 Z = y_out(:, 3:6:end);
