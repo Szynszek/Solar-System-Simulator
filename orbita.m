@@ -6,9 +6,9 @@ clear
 %% Physical parameters
 AU = 1.495978707e11; % [m] Astronomical unit 
 
-bodies = {'Sun', 'Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune'};
+bodies = {'Sun', 'Mercury', 'Venus', 'Earth', 'Mars', 'Jupiter', 'Saturn', 'Uranus', 'Neptune', 'Moon'};
 
-body_mu = [132712440041.93938, 22031.86855, 324858.592, 398600.435436+4902.800066, 42828.375662, 126686531.900, 37931206.234, 5793950.6103, 6835099.97] .* 1e9; % [m3/s2] Standard gravitational parameter (Earth + Moon)
+body_mu = [132712440041.93938, 22031.86855, 324858.592, 398600.435436, 42828.375662, 126686531.900, 37931206.234, 5793950.6103, 6835099.97, 4902.800066] .* 1e9; % [m3/s2] Standard gravitational parameter
 body_mu = reshape(body_mu, 1, 1, []);
 
 %% Initial state
@@ -25,9 +25,8 @@ r0_venus = [92153321309.08293, 55328018669.09437, -4549636525.406504];
 v0_venus = [-18265.144344563003, 29790.35226168731, 1463.605242061472];
 y0_venus = [r0_venus, v0_venus];
 
-% Changed to Earth-Moon barycenter
-r0_earth = [-148001259534.1553, 17169091157.38058, 17947884.04517062];
-v0_earth = [-4075.6727790927607, -29679.940956888782, 1.560242767398634];
+r0_earth = [-148003044342.3478, 17173561175.08375, 18271172.2293254];
+v0_earth = [-4086.5882221940615, -29684.85564088994, 0.7705410358660458];
 y0_earth = [r0_earth, v0_earth];
 
 r0_mars = [175478916135.9977, -109423927608.8385, -6569946055.261977];
@@ -50,7 +49,11 @@ r0_neptune = [4467414306173.692, 110809131133.7783, -105238080957.0405];
 v0_neptune = [-171.2848260947789, 5465.766243943168, -108.0812461311418];
 y0_neptune = [r0_neptune, v0_neptune];
 
-y0 = [y0_sun, y0_mercury, y0_venus, y0_earth, y0_mars, y0_jupiter, y0_saturn, y0_uranus, y0_neptune];
+r0_moon = [-147856153613.93558, 16805676178.152819, -8335629.025946371];
+v0_moon = [-3188.241052567629, -29280.37435496505, 65.76344226642661];
+y0_moon = [r0_moon, v0_moon];
+
+y0 = [y0_sun, y0_mercury, y0_venus, y0_earth, y0_mars, y0_jupiter, y0_saturn, y0_uranus, y0_neptune, y0_moon];
 
 
 %% Simulation configuration
