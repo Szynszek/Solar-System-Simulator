@@ -1,13 +1,22 @@
-import requests
+import json
 import sys
-
+import requests
 
 def fetch_and_format_ephemeris(date: str) -> None:
     url = "https://ssd.jpl.nasa.gov/api/horizons.api"
 
     bodies_id = {
-        "sun": 10, "mercury": 199, "venus": 299, "earth": 399,
-        "mars": 499, "jupiter": 599, "saturn": 699, "uranus": 799, "neptune": 899
+        "sun": "10", "mercury": "199", "venus": "299", "earth": "399",
+        "mars": "499", "jupiter": "599", "saturn": "699", "uranus": "799",
+        "neptune": "899", "moon": "301", "ceres": "1;", "pallas": "2;", "vesta": "4;"
+    }
+
+    mu_data = {
+        "sun": 1.3271244004193938e+20, "mercury": 2.203186855000000e+13, "venus": 3.248585920000000e+14,
+        "earth": 3.986004354360000e+14, "mars": 4.282837566200000e+13, "jupiter": 1.266865319000000e+17,
+        "saturn": 3.793120623400000e+16, "uranus": 5.793950610300000e+15, "neptune": 6.835099970000000e+15,
+        "moon": 4.902800066000000e+12, "ceres": 6.262840000000000e+10, "pallas": 1.363000000000000e+10,
+        "vesta": 1.728828000000000e+10,
     }
 
     base_parameters = {
@@ -18,41 +27,42 @@ def fetch_and_format_ephemeris(date: str) -> None:
         "VEC_DELTA_T": "'NO'", "CSV_FORMAT": "'YES'", "OBJ_DATA": "'YES'"
     }
 
-    formatted_lines = []
+    output_data = {}
+
+    session = requests.Session()
 
     for name, body_id in bodies_id.items():
         parameters = base_parameters.copy()
         parameters["COMMAND"] = f"'{body_id}'"
 
         try:
-            response = requests.get(url, params=parameters, timeout=10)
+            response = session.get(url, params=parameters, timeout=10)
             response.raise_for_status()
-            raw_data = response.text.split('$$SOE\n')[1].split('\n$$EOE')[0].strip()
+            text_data = response.text.replace('\r\n', '\n')
+
+            if '$$SOE' not in text_data:
+                raise ValueError(f"JPL API Error for {name}.")
+
+            raw_data = text_data.split('$$SOE\n')[1].split('\n$$EOE')[0].strip()
             values = raw_data.split(',')
 
-            x, y, z = float(values[2]) * 1e3, float(values[3]) * 1e3, float(values[4]) * 1e3
-            vx, vy, vz = float(values[5]) * 1e3, float(values[6]) * 1e3, float(values[7]) * 1e3
-
-            matlab_code = (
-                f"r0_{name} = [{x}, {y}, {z}];\n"
-                f"v0_{name} = [{vx}, {vy}, {vz}];\n"
-                f"y0_{name} = [r0_{name}, v0_{name}];\n"
-            )
-            formatted_lines.append(matlab_code)
+            state_vector = [
+                float(values[2]) * 1e3, float(values[3]) * 1e3, float(values[4]) * 1e3,
+                float(values[5]) * 1e3, float(values[6]) * 1e3, float(values[7]) * 1e3
+            ]
+            output_data[name] = {
+                "mu": mu_data[name],
+                "state": state_vector
+            }
 
         except Exception as e:
-            print(f"Critical exception: {name}. Description: {e}")
-            sys.exit(1)
+            sys.exit(f"Critical exception: {name}. Description: {e}")
 
-
-    for line in formatted_lines:
-        print(line)
-
-    y0_string = "y0 = [" + ", ".join([f"y0_{name}" for name in bodies_id.keys()]) + "];"
-    print(y0_string)
-
+    with open("ephemeris.json", "w") as json_file:
+        json.dump(output_data, json_file, indent=4)
 
 if __name__ == "__main__":
     target_date = "2026-03-14"
     print(f"% Data generated for date: {target_date}\n")
     fetch_and_format_ephemeris(target_date)
+    print("Success: Ephemeris fully generated without exceptions.")
