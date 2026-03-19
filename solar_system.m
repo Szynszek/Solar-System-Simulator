@@ -24,7 +24,7 @@ t_end = 31557600*30; % [s] Simulation duration
 t_span = [0, t_end]; % [s] Simulation time span
 
 %% Numerical calculations
-dt = 1800; % [s] Simulation time step size
+dt = 3600; % [s] Simulation time step size
 num_steps = round(t_end / dt);
 t_out = linspace(0, t_end, num_steps+1);
 
@@ -141,6 +141,7 @@ function y_out = integrate_PEFRL(y_in, dt, num_steps, body_mu)
     y_out = zeros(num_steps+1, size(y_in, 2));
     y_out(1,:) = y_in;
     rv = reshape(y_in, 6, []);
+    mu = body_mu(:).'; 
 
     r = rv(1:3,:);
     v = rv(4:6,:);
@@ -157,14 +158,14 @@ function y_out = integrate_PEFRL(y_in, dt, num_steps, body_mu)
     
     for i = 1 : num_steps
         r1 = r + v .* d1;
-        v1 = v + calc_acceleration(r1, body_mu) .* c1;
+        v1 = v + calc_acceleration(r1, mu) .* c1;
         r2 = r1 + v1 .* d2;
-        v2 = v1 + calc_acceleration(r2, body_mu) .* d3;
+        v2 = v1 + calc_acceleration(r2, mu) .* d3;
         r3 = r2 + v2 .* c2;
-        v3 = v2 + calc_acceleration(r3 , body_mu) .* d3;
+        v3 = v2 + calc_acceleration(r3 , mu) .* d3;
         r4 = r3 + v3 .* d2;
     
-        v = v3 + calc_acceleration(r4, body_mu) .* c1;
+        v = v3 + calc_acceleration(r4, mu) .* c1;
         r = r4 + v .* d1;
     
         y_out(i+1, :) = reshape([r;v], 1, []); 
@@ -238,21 +239,22 @@ function [a_out, e_out] = calc_kepler_elements(y_out, body_mu, sun_idx, target_i
 end
 
 
-function a = calc_acceleration(r, body_mu)
-
-    N = size(body_mu, 3);
+function a = calc_acceleration(r, mu)
+    N = size(r, 2);
+    a = zeros(3, N);
     
-    % Newton term
-    r_i = reshape(r, 3, N, 1);
-    r_j = reshape(r, 3, 1, N);
-    dr = r_j-r_i;
-    dist = vecnorm(dr,2,1);
-    dist(dist == 0) = inf;
-    da = body_mu .*dr ./dist.^3;
-    a_newton = sum(da,3);
-    a_newton = squeeze(a_newton);
-    a = a_newton;
-
+    for i = 1:N
+        dr = r - r(:, i);
+        d2 = dr(1,:).^2 + dr(2,:).^2 + dr(3,:).^2; 
+        d2(i) = inf; 
+        
+        inv_d3 = 1 ./ (d2 .* sqrt(d2)); 
+        factor = mu .* inv_d3; 
+        
+        a(1, i) = sum(dr(1, :) .* factor);
+        a(2, i) = sum(dr(2, :) .* factor);
+        a(3, i) = sum(dr(3, :) .* factor);
+    end
 end
 
 
