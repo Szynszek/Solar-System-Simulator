@@ -8,11 +8,20 @@ ephemeris_data = jsondecode(raw_json);
 bodies = fieldnames(ephemeris_data);
 N = length(bodies);
 body_mu = zeros(1, 1, N);
+body_pole_vectors = zeros(3, N);
+body_J2 = zeros(1, N);
+body_eq_rad = zeros(1, N);
+
 y0 = zeros(1, 6*N);
 
 for i = 1:N
     body_name = bodies{i};
     body_mu(1, 1, i) = ephemeris_data.(body_name).mu;
+    asc = deg2rad(ephemeris_data.(body_name).right_ascension);
+    dec = deg2rad(ephemeris_data.(body_name).declination);
+    body_pole_vectors(1:3,i) = [cos(dec)*cos(asc); cos(dec)*sin(asc); sin(dec)];
+    body_J2(1,i) = ephemeris_data.(body_name).j2;
+    body_eq_rad(1,i) = ephemeris_data.(body_name).radius;
     y0((i-1)*6+1 : i*6 ) = ephemeris_data.(body_name).state.'; 
 end
 
@@ -27,8 +36,9 @@ t_span = [0, t_end]; % [s] Simulation time span
 dt = 3600; % [s] Simulation time step size
 num_steps = round(t_end / dt);
 t_out = linspace(0, t_end, num_steps+1);
-
-y_out = integrate_PEFRL(y0, dt, num_steps, body_mu);
+mu_1D = reshape(body_mu, 1, N);
+K_J2 =-3/2 .* mu_1D .* body_J2.* body_eq_rad.^2;
+y_out = integrate_PEFRL(y0, dt, num_steps, body_mu, body_pole_vectors, K_J2);
 
 %% Visualization
 X = y_out(:, 1:6:end);
@@ -71,7 +81,7 @@ title('Sun orbital trajectory')
 hold off
 
 % Total energy and error visualization
-[E_tot, dE_rel] = calc_system_energy(y_out, body_mu);
+[E_tot, dE_rel] = calc_system_energy(y_out, body_mu, body_pole_vectors, K_J2);
 figure
 plot(t_out, E_tot)
 xlabel('Time [s]')
@@ -136,7 +146,7 @@ sgtitle(sprintf('Error analysis of PEFRL integrator | dt = %d s | T_{sim} = %.2f
 
 %% Local functions
 
-function y_out = integrate_PEFRL(y_in, dt, num_steps, body_mu)
+function y_out = integrate_PEFRL(y_in, dt, num_steps, body_mu, body_pole_vectors, K_J2)
     
     y_out = zeros(num_steps+1, size(y_in, 2));
     y_out(1,:) = y_in;
@@ -158,14 +168,14 @@ function y_out = integrate_PEFRL(y_in, dt, num_steps, body_mu)
     
     for i = 1 : num_steps
         r1 = r + v .* d1;
-        v1 = v + calc_acceleration(r1, mu) .* c1;
+        v1 = v + calc_acceleration(r1, mu, body_pole_vectors, K_J2) .* c1;
         r2 = r1 + v1 .* d2;
-        v2 = v1 + calc_acceleration(r2, mu) .* d3;
+        v2 = v1 + calc_acceleration(r2, mu, body_pole_vectors, K_J2) .* d3;
         r3 = r2 + v2 .* c2;
-        v3 = v2 + calc_acceleration(r3 , mu) .* d3;
+        v3 = v2 + calc_acceleration(r3 , mu, body_pole_vectors, K_J2) .* d3;
         r4 = r3 + v3 .* d2;
     
-        v = v3 + calc_acceleration(r4, mu) .* c1;
+        v = v3 + calc_acceleration(r4, mu, body_pole_vectors, K_J2) .* c1;
         r = r4 + v .* d1;
     
         y_out(i+1, :) = reshape([r;v], 1, []); 
@@ -173,7 +183,7 @@ function y_out = integrate_PEFRL(y_in, dt, num_steps, body_mu)
 
 end
 
-function [E_tot, dE_rel] = calc_system_energy(y_out, body_mu)
+function [E_tot, dE_rel] = calc_system_energy(y_out, body_mu, body_pole_vectors, K_J2)
     T = size(y_out, 1);
     N = size(body_mu, 3);
     y_3d = reshape(y_out, T, 6, N); 
@@ -187,14 +197,19 @@ function [E_tot, dE_rel] = calc_system_energy(y_out, body_mu)
     
     E_p = zeros(T, 1);
     mu_1D = body_mu(:);
+    C_J2 = K_J2 .* 1/3;
     
     for i = 1 : N-1
         for j = i+1 : N
             dr = r(:, :, j) - r(:, :, i); 
+            z_i = sum(dr .* body_pole_vectors(:,i).', 2);
+            z_j = sum(dr .* body_pole_vectors(:,j).', 2);
             dist = vecnorm(dr, 2, 2); 
             dist(dist == 0) = eps; 
-           
-            E_p = E_p - (mu_1D(i) * mu_1D(j)) ./ dist; % Potential pseudo-energy
+            E_pJ2_i = C_J2(i) .* mu_1D(j) .* (1./(dist.^3)) .* (1-3*(z_i.^2)./(dist.^2));
+            E_pJ2_j = C_J2(j) .* mu_1D(i) .* (1./(dist.^3)) .* (1-3*(z_j.^2)./(dist.^2));
+
+            E_p = E_p - (mu_1D(i) * mu_1D(j)) ./ dist + E_pJ2_j + E_pJ2_i; % Potential pseudo-energy
         end
     end
     
@@ -239,7 +254,7 @@ function [a_out, e_out] = calc_kepler_elements(y_out, body_mu, sun_idx, target_i
 end
 
 
-function a = calc_acceleration(r, mu)
+function a = calc_acceleration(r, mu, body_pole_vectors, K_J2)
     N = size(r, 2);
     a = zeros(3, N);
     
@@ -249,11 +264,18 @@ function a = calc_acceleration(r, mu)
         d2(i) = inf; 
         
         inv_d3 = 1 ./ (d2 .* sqrt(d2)); 
-        factor = mu .* inv_d3; 
+        inv_d5 = inv_d3 ./ d2;
+        z_local = sum(dr .* body_pole_vectors, 1);
+
+
+        factor_newton = mu .* inv_d3;
+        factor_J2 = K_J2 .* inv_d5 .* ((5 .* z_local.^2 ./ d2 - 1) .* dr - 2 .*z_local .* body_pole_vectors);
         
-        a(1, i) = sum(dr(1, :) .* factor);
-        a(2, i) = sum(dr(2, :) .* factor);
-        a(3, i) = sum(dr(3, :) .* factor);
+        a(1, i) = sum(dr(1, :) .* factor_newton + factor_J2(1, :));
+        a(2, i) = sum(dr(2, :) .* factor_newton + factor_J2(2, :));
+        a(3, i) = sum(dr(3, :) .* factor_newton + factor_J2(3, :));
+        
+
     end
 end
 
