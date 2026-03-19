@@ -30,7 +30,7 @@ t_out = linspace(0, t_end, num_steps+1);
 
 y_out = integrate_PEFRL(y0, dt, num_steps, body_mu);
 
-% %% Visualization
+%% Visualization
 X = y_out(:, 1:6:end);
 Y = y_out(:, 2:6:end);
 Z = y_out(:, 3:6:end);
@@ -75,8 +75,8 @@ hold off
 figure
 plot(t_out, E_tot)
 xlabel('Time [s]')
-ylabel('Total energy [J]')
-title('Total energy in time')
+ylabel('Energy parameter [m^5/s^4]')
+title('Pseudo-energy conservation')
 grid on
 
 figure
@@ -121,10 +121,10 @@ names = reshape(bodies, 1, []);
 figure;
 
 subplot(2,2,1)
-plot_log_stem(dr_rel, names, 'Relative error [%]', 'Relative error of position');
+plot_log_stem(dr_rel, names, 'Relative error [-]', 'Relative error of position');
 
 subplot(2,2,2)
-plot_log_stem(dv_rel, names, 'Relative error [%]', 'Relative error of velocity');
+plot_log_stem(dv_rel, names, 'Relative error [-]', 'Relative error of velocity');
 
 subplot(2,2,3)
 plot_log_stem(dr_abs, names, 'Absolute error [m]', 'Absolute error of position');
@@ -173,38 +173,32 @@ function y_out = integrate_PEFRL(y_in, dt, num_steps, body_mu)
 end
 
 function [E_tot, dE_rel] = calc_system_energy(y_out, body_mu)
-    T = size(y_out,1);
+    T = size(y_out, 1);
     N = size(body_mu, 3);
-    G = 6.67430e-11; % [N m^2/kg^2] Gravitational Constant (CODATA)
-
-    y_3d = reshape(y_out, T, 6, N); % Planet state per page
-
-    r = y_3d(:,1:3,:); % Only positions
-    v = y_3d(:,4:6,:); % Only velocity
+    y_3d = reshape(y_out, T, 6, N); 
+    r = y_3d(:, 1:3, :); 
+    v = y_3d(:, 4:6, :); 
     v2 = v.^2;
-    
-    E_k = 0.5 .* sum(v2,2) .* (body_mu ./ G);
-    E_k = sum(E_k,3);
-    E_k = E_k(:);
-    
-    r_i = reshape(r, T, 3, N, 1); % 4d tensor
-    r_j = reshape(r, T, 3, 1, N); % 4d tensor
-    dr = r_j-r_i; % 4d tensor (Time, position, body_i, body_j)
 
-    dist = vecnorm(dr, 2, 2);
-    dist(dist==0) = inf;
-
-    mu_i = reshape(body_mu, 1, 1, N, 1);
-    mu_j = reshape(body_mu, 1, 1, 1, N);
+    E_k_components = 0.5 .* sum(v2, 2) .* body_mu; % Kinetic pseudo-energy
+    E_k = sum(E_k_components, 3); 
+    E_k = E_k(:); 
     
-    E_p = -(mu_i .* mu_j) ./ (dist .* G);
-
-    E_p = sum(E_p, [3, 4]) / 2;
-    E_p = E_p(:);
+    E_p = zeros(T, 1);
+    mu_1D = body_mu(:);
     
-    E_tot = E_k + E_p;
-
-    dE_rel = (E_tot - E_tot(1)) ./ abs(E_tot(1)); % Relative energy error
+    for i = 1 : N-1
+        for j = i+1 : N
+            dr = r(:, :, j) - r(:, :, i); 
+            dist = vecnorm(dr, 2, 2); 
+            dist(dist == 0) = eps; 
+           
+            E_p = E_p - (mu_1D(i) * mu_1D(j)) ./ dist; % Potential pseudo-energy
+        end
+    end
+    
+    E_tot = E_k + E_p; % Total pseudo-energy  
+    dE_rel = (E_tot - E_tot(1)) ./ abs(E_tot(1)); 
 end
 
 function [a_out, e_out] = calc_kepler_elements(y_out, body_mu, sun_idx, target_idxs)
@@ -291,11 +285,11 @@ function [dr_rel, dr_abs, dv_rel, dv_abs] = compare_ephemeris(y_in, bodies)
     r_test = y_test(1:3, :);
     v_test = y_test(4:6, :);
 
-    dr_abs = vecnorm(r_in - r_test, 2, 1); % Absolute pos error
-    dv_abs = vecnorm(v_in - v_test, 2, 1); % Absolute vel error
+    dr_abs = vecnorm(r_in - r_test, 2, 1); % Absolute position error
+    dv_abs = vecnorm(v_in - v_test, 2, 1); % Absolute velocity error
 
-    dr_rel = dr_abs ./ vecnorm(r_test, 2, 1) * 100; % Relative pos error
-    dv_rel = dv_abs ./ vecnorm(v_test, 2, 1) * 100; % Relative vel error
+    dr_rel = dr_abs ./ vecnorm(r_test, 2, 1); % Relative position error
+    dv_rel = dv_abs ./ vecnorm(v_test, 2, 1); % Relative velocity error
 end
 
 function h = plot_log_stem(data, names, y_label, plot_title)
