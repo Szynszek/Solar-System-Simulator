@@ -267,14 +267,14 @@ function a = calc_acceleration(r, mu, body_pole_vectors, K_J2)
         inv_d5 = inv_d3 ./ d2;
         z_local = sum(dr .* body_pole_vectors, 1);
 
-
         factor_newton = mu .* inv_d3;
-        factor_J2 = K_J2 .* inv_d5 .* ((5 .* z_local.^2 ./ d2 - 1) .* dr - 2 .*z_local .* body_pole_vectors);
+        factor_J2_direct = K_J2 .* inv_d5 .* ((5 .* z_local.^2 ./ d2 - 1) .* dr - 2 .*z_local .* body_pole_vectors);
+        z_self = sum(dr .* body_pole_vectors(:, i), 1);
+        factor_J2_reaction = K_J2(i) .* (mu ./ mu(i)) .* inv_d5 .* ((5 .* z_self.^2 ./ d2 - 1) .* dr - 2 .* z_self .* body_pole_vectors(:, i));
         
-        a(1, i) = sum(dr(1, :) .* factor_newton + factor_J2(1, :));
-        a(2, i) = sum(dr(2, :) .* factor_newton + factor_J2(2, :));
-        a(3, i) = sum(dr(3, :) .* factor_newton + factor_J2(3, :));
-        
+        a(1, i) = sum(dr(1, :) .* factor_newton + factor_J2_direct(1, :) + factor_J2_reaction(1, :));
+        a(2, i) = sum(dr(2, :) .* factor_newton + factor_J2_direct(2, :) + factor_J2_reaction(2, :));
+        a(3, i) = sum(dr(3, :) .* factor_newton + factor_J2_direct(3, :) + factor_J2_reaction(3, :));
 
     end
 end
