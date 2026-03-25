@@ -25,6 +25,16 @@ for i = 1:N
     y0((i-1)*6+1 : i*6 ) = ephemeris_data.(body_name).state.'; 
 end
 
+M_tot = sum(body_mu(:));
+body_mu_2D = reshape(body_mu, 1, []);
+y0_2D = reshape(y0, 6, []);
+y0_w = y0_2D .* body_mu_2D; % y0 weighted by mu
+r_bary = sum(y0_w(1:3, :), 2) / M_tot;
+v_bary = sum(y0_w(4:6, :), 2) / M_tot;
+y_bary = [r_bary; v_bary];
+y0_2D = y0_2D - y_bary;
+y0 = y0_2D(:).';
+
 %% Physical parameters
 AU = 1.495978707e11; % [m] Astronomical unit 
 
@@ -33,11 +43,19 @@ t_end = 31557600*30; % [s] Simulation duration
 t_span = [0, t_end]; % [s] Simulation time span
 
 %% Numerical calculations
-dt = 3600; % [s] Simulation time step size
-num_steps = round(t_end / dt);
-t_out = linspace(0, t_end, num_steps+1);
+dt = 1800; % [s] Simulation time step size
+num_steps = floor(t_end / dt);
+t_actual = num_steps * dt;
+
+if t_actual ~= t_end
+    fprintf("Warning: Simulation duration is not divisible by time step size");
+    fprintf("Requested: %.2f s | Actual: %.2f s (Diff: %.2f s)\n", t_end, t_actual, t_end - t_actual);
+end
+
 mu_1D = reshape(body_mu, 1, N);
 K_J2 =-3/2 .* mu_1D .* body_J2.* body_eq_rad.^2;
+
+t_out = linspace(0, t_end, num_steps + 1);
 y_out = integrate_PEFRL(y0, dt, num_steps, body_mu, body_pole_vectors, K_J2);
 
 %% Visualization
@@ -125,20 +143,25 @@ legend
 hold off
 
 % Relative and absolute error visualization
-[dr_rel, dr_abs, dv_rel, dv_abs] = compare_ephemeris(y_out, bodies);
+[dr_rel, dr_abs, dv_rel, dv_abs] = compare_ephemeris(y_out, bodies, sun_idx);
 names = reshape(bodies, 1, []);
+names(sun_idx) = []; % Remove sun (to small error to plot)
+dr_rel(sun_idx) = [];
+dr_abs(sun_idx) = [];
+dv_rel(sun_idx) = [];
+dv_abs(sun_idx) = [];
 
 figure;
 
-subplot(2,2,1)
+subplot(2,1,1)
 plot_log_stem(dr_rel, names, 'Relative error [-]', 'Relative error of position');
-
+% 
 subplot(2,2,2)
 plot_log_stem(dv_rel, names, 'Relative error [-]', 'Relative error of velocity');
 
-subplot(2,2,3)
+subplot(2,1,2)
 plot_log_stem(dr_abs, names, 'Absolute error [m]', 'Absolute error of position');
-
+% 
 subplot(2,2,4)
 plot_log_stem(dv_abs, names, 'Absolute error [m/s]', 'Absolute error of velocity');
 
@@ -191,7 +214,7 @@ function [E_tot, dE_rel] = calc_system_energy(y_out, body_mu, body_pole_vectors,
     v = y_3d(:, 4:6, :); 
     v2 = v.^2;
 
-    E_k_components = 0.5 .* sum(v2, 2) .* body_mu; % Kinetic pseudo-energy
+    E_k_components = 0.5 .* sum(v2, 2) .* body_mu; % Kinetic energy
     E_k = sum(E_k_components, 3); 
     E_k = E_k(:); 
     
@@ -209,11 +232,11 @@ function [E_tot, dE_rel] = calc_system_energy(y_out, body_mu, body_pole_vectors,
             E_pJ2_i = C_J2(i) .* mu_1D(j) .* (1./(dist.^3)) .* (1-3*(z_i.^2)./(dist.^2));
             E_pJ2_j = C_J2(j) .* mu_1D(i) .* (1./(dist.^3)) .* (1-3*(z_j.^2)./(dist.^2));
 
-            E_p = E_p - (mu_1D(i) * mu_1D(j)) ./ dist + E_pJ2_j + E_pJ2_i; % Potential pseudo-energy
+            E_p = E_p - (mu_1D(i) * mu_1D(j)) ./ dist + E_pJ2_j + E_pJ2_i; % Potential energy
         end
     end
     
-    E_tot = E_k + E_p; % Total pseudo-energy  
+    E_tot = E_k + E_p; % Total energy  
     dE_rel = (E_tot - E_tot(1)) ./ abs(E_tot(1)); 
 end
 
@@ -280,7 +303,7 @@ function a = calc_acceleration(r, mu, body_pole_vectors, K_J2)
 end
 
 
-function [dr_rel, dr_abs, dv_rel, dv_abs] = compare_ephemeris(y_in, bodies)
+function [dr_rel, dr_abs, dv_rel, dv_abs] = compare_ephemeris(y_in, bodies, sun_idx)
 
     raw_json = fileread('test_ephemeris.json');
     ephemeris_data = jsondecode(raw_json);
@@ -300,20 +323,26 @@ function [dr_rel, dr_abs, dv_rel, dv_abs] = compare_ephemeris(y_in, bodies)
     end
     
     y_test = reshape(y_test, 6, []);
-    y_in = y_in(end, :);
-    y_in = reshape(y_in, 6, []);
-    
-    r_in = y_in(1:3, :);
-    v_in = y_in(4:6, :);
-    
-    r_test = y_test(1:3, :);
-    v_test = y_test(4:6, :);
+    y_in_end = reshape(y_in(end, :), 6, []);
 
-    dr_abs = vecnorm(r_in - r_test, 2, 1); % Absolute position error
-    dv_abs = vecnorm(v_in - v_test, 2, 1); % Absolute velocity error
+    r_sun_sim = y_in_end(1:3, sun_idx);
+    v_sun_sim = y_in_end(4:6, sun_idx);
+    r_in_helio = y_in_end(1:3, :) - r_sun_sim;
+    v_in_helio = y_in_end(4:6, :) - v_sun_sim;
 
-    dr_rel = dr_abs ./ vecnorm(r_test, 2, 1); % Relative position error
-    dv_rel = dv_abs ./ vecnorm(v_test, 2, 1); % Relative velocity error
+    r_test_helio = y_test(1:3, :) - y_test(1:3, sun_idx);
+    v_test_helio = y_test(4:6, :) - y_test(4:6, sun_idx);
+    
+    dr_abs = vecnorm(r_in_helio - r_test_helio, 2, 1); % Absolute position error
+    dv_abs = vecnorm(v_in_helio - v_test_helio, 2, 1); % Absolute velocity error
+
+    norm_r_test = vecnorm(r_test_helio, 2, 1);
+    norm_v_test = vecnorm(v_test_helio, 2, 1);
+    norm_r_test(norm_r_test == 0) = inf;
+    norm_v_test(norm_v_test == 0) = inf;
+
+    dr_rel = dr_abs ./ norm_r_test; % Relative position error
+    dv_rel = dv_abs ./ norm_v_test; % Relative velocity error
 end
 
 function h = plot_log_stem(data, names, y_label, plot_title)
