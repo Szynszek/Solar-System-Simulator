@@ -44,9 +44,9 @@ The integrity of the physics engine is validated against theoretical limits and 
 
 ### Shadow Hamiltonian Stability
 
-Mathematical proof of engine stability. The relative pseudo-energy error remains bounded at the **O(10^-13)** level over a 30-year simulation of the Solar System (dt = 1800s).
+Mathematical proof of engine stability. The relative pseudo-energy error remains bounded at the **O(10^-13)** level over a 150-year simulation of the Solar System (dt = 3600s).
 
-> **Proof of Concept:** The high-frequency noise at the statistical error accumulation bound of $\approx 1.61 \times 10^{-13}$ confirms that symplectic bounds are perfectly maintained despite the sharp $1/r^4$ gradients introduced by the $J_2$ potential.
+> **Proof of Concept:** The high-frequency noise at the statistical error accumulation bound of $\approx 2.55 \times 10^{-13}$ confirms that symplectic bounds are perfectly maintained despite the sharp $1/r^4$ gradients introduced by the $J_2$ potential.
 
 <p align="center">
 <img src="assets/energy_error.jpg" alt="Shadow Hamiltonian Stability" width="800">
@@ -58,7 +58,7 @@ Strict energy conservation verified: Relative pseudo-energy error bounded at O(1
 
 ### JPL Horizons Benchmarking
 
-System state outputs are actively benchmarked against NASA JPL Horizons data. Discrepancies (e.g., Earth's position error of ~1728 km over 30 years) reveal the theoretical limits of a purely Newtonian N-body model. These deviations are expected and directly result from:
+System state outputs are actively benchmarked against NASA JPL Horizons data. Discrepancies reveal the theoretical limits of a purely Newtonian N-body model, with Earth's position error scaling strictly linearly over time ($\approx 1728$ km over 30 years, $\approx 5185$ km over 90 years, and $\approx 8643$ km over 150 years). This linear secular drift is expected and directly results from:
 * The absence of Einstein-Infeld-Hoffmann (EIH) general relativity corrections.
 * Unmodeled perturbations from major celestial bodies.
 * Lack of Barycentric Dynamical Time (TDB) dilation.
