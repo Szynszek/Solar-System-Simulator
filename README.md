@@ -14,7 +14,7 @@ Example visualization of J2-induced Nodal Regression (RAAN precession) over long
 
 <hr>
 
-## Executive Summary
+## Core Overview
 
 Built from scratch to maintain strict symplectic energy bounds and conserve system linear momentum (Barycenter stability). This engine bypasses standard test-mass approximations by implementing two-way reflex accelerations for gravitational harmonics ($J_2$).
 
@@ -26,14 +26,14 @@ Utilizing a 4th-order **Position Extended Forest-Ruth Like (PEFRL)** symplectic 
 
 ### 2. **$J_2$** Harmonics
 
-Implements a fully algebraic formulation of planetary oblateness ($J_2$). By utilizing projections of rotational poles ($z_{local}$), the engine entirely avoids computationally expensive and mathematically stiff rotation matrices (DCMs).
+Implements a coordinate-free, fully algebraic formulation of the $J_2$ geopotential. By directly projecting local rotational poles ($\hat{z}_{local}$) onto the inertial frame, the engine eliminates the need for Direction Cosine Matrices (DCMs). This approach completely bypasses orthonormalization drift and drastically reduces computational overhead during evaluation.
 
 ### 3. Strict Momentum Conservation
 
 Eliminates the standard non-conservation of total momentum in hierarchical N-body formulations. The engine calculates and applies reflex/recoil accelerations to oblate bodies, guaranteeing no artificial Barycenter drift. The system calculates the mutual perturbation symmetrically:
 
 $$
-\vec{a}_{reflex} = - \frac{\mu_j}{\mu_i} \cdot \vec{a}_{direct}(\text{parameters}_i, \vec{r}_{ji})
+\vec{a}_{reflex} = - \frac{\mu_j}{\mu_i} \cdot \vec{a}_{direct}(J_{2,i}, R_{eq,i}, \vec{r}_{ji})
 $$
 
 <hr>
@@ -46,7 +46,7 @@ The integrity of the physics engine is validated against theoretical limits and 
 
 Mathematical proof of engine stability. The relative pseudo-energy error remains bounded at the **O(10^-13)** level over a 30-year simulation of the Solar System (dt = 1800s).
 
-> **Proof of Concept:** The high-frequency, zero-trend noise confirms that symplectic bounds are perfectly maintained despite the sharp $1/r^4$ gradients introduced by the $J_2$ potential.
+> **Proof of Concept:** The high-frequency noise at the statistical error accumulation bound of $\approx 1.61 \times 10^{-13}$ confirms that symplectic bounds are perfectly maintained despite the sharp $1/r^4$ gradients introduced by the $J_2$ potential.
 
 <p align="center">
 <img src="assets/energy_error.jpg" alt="Shadow Hamiltonian Stability" width="800">
@@ -58,9 +58,9 @@ Strict energy conservation verified: Relative pseudo-energy error bounded at O(1
 
 ### JPL Horizons Benchmarking
 
-System state outputs are actively benchmarked against NASA JPL Horizons data. Known discrepancies (e.g., Earth's secular along-track error of ~1881 km over 30 years) are strictly isolated, quantified, and attributed to the theoretical limits of classical Newtonian mechanics:
-
-* Absence of Einstein-Infeld-Hoffmann (EIH) general relativity corrections.
+System state outputs are actively benchmarked against NASA JPL Horizons data. Discrepancies (e.g., Earth's position error of ~1728 km over 30 years) reveal the theoretical limits of a purely Newtonian N-body model. These deviations are expected and directly result from:
+* The absence of Einstein-Infeld-Hoffmann (EIH) general relativity corrections.
+* Unmodeled perturbations from major celestial bodies.
 * Lack of Barycentric Dynamical Time (TDB) dilation.
 
 <img src="assets/position_error.jpg" alt="Position error" width="800">
@@ -70,18 +70,36 @@ System state outputs are actively benchmarked against NASA JPL Horizons data. Kn
 ## Repository Structure
 
 ```
-├── ephemeris.json          # Mission config, Epoch-of-Date vectors, J2 data
-├── solar_system.m          # Main execution, preallocation and visualization.
-├── jpl_scraper.py          # Python script for generating JSON ephemeris
-└── README.md               # Architecture documentation
+├── ephemeris.json             # Mission config
+├── test_ephemeris.json        # Simulation validation file
+├── solar_system.m             # Main execution and visualization
+├── README.md                  # Architecture documentation
+├── assets/                    # Images and videos
+└── tools/
+   ├── spice_scraper.py        # Parameters generator for specified date
+   └── spice-sim-data.tpc      # Additional planetary data
+
 ```
 
-## Configuration & Data Traceability
+## Data Traceability & Credits
 
-Mission parameters and initial state vectors are decoupled from the physics engine via `ephemeris.json`.
+**Data Traceability:**
 
-**Data Traceability Standard:**
+* Standard gravitational parameters ($\mu$) and initial state vectors (Epoch-of-Date) are sourced uniformly from the JPL DE440 ephemerides and standard planetary constants kernels (PCK) parsed via the SPICE Toolkit.
 
-* **All** planetary constants (e.g., standard gravitational parameters $\mu$) and initial state vectors (Epoch-of-Date) are sourced uniformly from the NASA JPL Horizons system.
+* Additional gravitational data (e.g., highly precise $J_2$ harmonics and 3D reference radii for Earth, Moon, and Jupiter) are rigorously sourced from scientific literature and NASA technical memorandums. This overriding data is explicitly documented within the custom `tools/spice-sim-data.tpc` kernel.
 
-* The only exception is Jupiter, whose planetary constants are traced to NASA/TM-20210022058 (Jupiter Global Reference Atmospheric Model: User Guide; H. L. Justh et al.). 
+* Mission configuration and initial N-body state vectors mapped in ephemeris.json and test_ephemeris.json are generated using the `tools/spice_scraper.py`.
+
+**Acknowledgments & Credits**
+
+This project utilizes the **SPICE toolkit**:
+
+>Acton, C.H.; "Ancillary Data Services of NASA's Navigation and Ancillary Information Facility;" Planetary and Space Science, Vol. 44, No. 1, pp. 65-70, 1996. [DOI 10.1016/0032-0633(95)00107-7](https://doi.org/10.1016/0032-0633(95)00107-7)
+
+>Charles Acton, Nathaniel Bachman, Boris Semenov, Edward Wright; A look toward the future in the handling of space science mission geometry; Planetary and Space Science (2017); [DOI 10.1016/j.pss.2017.02.013](https://doi.org/10.1016/j.pss.2017.02.013)
+
+
+and its Python wrapper **SpiceyPy**:
+
+>Annex et al., (2020). SpiceyPy: a Pythonic Wrapper for the SPICE Toolkit. Journal of Open Source Software, 5(46), 2050, [DOI 10.21105/joss.02050](https://doi.org/10.21105/joss.02050)

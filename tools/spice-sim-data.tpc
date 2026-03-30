@@ -1,0 +1,53 @@
+KPL/PCK
+
+============================================================================
+EXTENDED GRAVITY PLANETARY CONSTANTS KERNEL (PCK)
+============================================================================
+
+  This file contains not standarized gravitational parameters for complex
+  Solar System simulations.
+
+  Data Traceability:
+  --------------------------------------------------------------------------
+  1. BODY599_J2, RADII, GM:
+     NASA/TM-20210022058 (Jupiter Global Reference Atmospheric Model:
+     User Guide; H. L. Justh et al.).
+
+  2. BODY399 J2, RADII, GM:
+     Förste, C., “EIGEN-6C4 - The latest combined global gravity field model
+     including GOCE data up to degree and order 1949 of GFZ Potsdam and GRGS
+     Toulouse”, Art. no. 3707, 2014.
+
+     z radius has been calculated using formula: R_ref * (1-f), where
+     R_ref = 6.378136460E+03 and f = 1/298.257223563
+
+  3. BODY301 J2, RADII, GM:
+     Lemoine, F. G., et al. (2014), GRGM900C: A degree 900 lunar gravity model
+     from GRAIL primary and extended mission data, Geophys. Res. Lett., 41,
+     3382-3389, doi:10.1002/2014GL060027
+     Goossens, S., et al. (2016), A Global Degree and Order 1200 Model of the
+     Lunar Gravity Field using GRAIL Mission Data, Lunar and Planetary Science
+     Conference, Houston, TX, Abstract #1484.
+
+     Please be careful when using Moon's J2 or RADII, because Lunar apsidal
+     precession is only 9 yrs.
+
+============================================================================
+
+\begindata
+
+   BODY399_RADII = ( 6.378136460E+03 6.378136460E+03 6.356751776055698e+03 )
+   BODY399_J2 = ( 0.001082626337689 )
+   BODY399_GM = ( 0.3986004415E+6 )
+
+   BODY301_RADII = ( 1738.0 1738.0 1738.0 )
+   BODY301_J2 = ( 0.00020322356087099962 )
+   BODY301_GM = ( 4902.80011526323 )
+
+   BODY599_RADII = ( 71492.0 71492.0 66854.0 )
+   BODY599_J2 = ( 0.014736 )
+   BODY599_GM = ( 1.266865341960128E+8 )
+
+\begintext
+
+===========================================================================

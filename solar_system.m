@@ -17,9 +17,9 @@ y0 = zeros(1, 6*N);
 for i = 1:N
     body_name = bodies{i};
     body_mu(1, 1, i) = ephemeris_data.(body_name).mu;
-    asc = deg2rad(ephemeris_data.(body_name).right_ascension);
-    dec = deg2rad(ephemeris_data.(body_name).declination);
-    body_pole_vectors(1:3,i) = [cos(dec)*cos(asc); cos(dec)*sin(asc); sin(dec)];
+    longitude = deg2rad(ephemeris_data.(body_name).longitude);
+    latitude = deg2rad(ephemeris_data.(body_name).latitude);
+    body_pole_vectors(1:3,i) = [cos(latitude)*cos(longitude); cos(latitude)*sin(longitude); sin(latitude)];
     body_J2(1,i) = ephemeris_data.(body_name).j2;
     body_eq_rad(1,i) = ephemeris_data.(body_name).radius;
     y0((i-1)*6+1 : i*6 ) = ephemeris_data.(body_name).state.'; 
@@ -65,9 +65,8 @@ Z = y_out(:, 3:6:end);
 
 sun_idx = find(strcmp(bodies, 'Sun'), 1);
 earth_idx = find(strcmp(bodies, 'Earth'), 1);
-mars_idx = find(strcmp(bodies, 'Mars'), 1);
 
-if isempty(sun_idx) || isempty(earth_idx) || isempty(mars_idx)
+if isempty(sun_idx) || isempty(earth_idx)
     error('Fatal error: Missing bodies in body vector. Check ephemeris.json file.');
 end
 
@@ -75,7 +74,7 @@ end
 figure
 hold on
 plot3(X, Y, Z, 'LineWidth', 1.5)
-legend(bodies)
+legend(bodies, 'Interpreter', 'none')
 axis equal
 grid on
 xlabel('Position X [m]')
@@ -115,7 +114,7 @@ title('Relative energy error in time')
 grid on
 
 % Eccentricity and Semi-major axis change visualization
-target_idxs = [earth_idx, mars_idx];
+target_idxs = [earth_idx];
 
 [a_out, e_out] = calc_kepler_elements(y_out, body_mu, sun_idx, target_idxs);
 
@@ -123,7 +122,6 @@ figure
 subplot(2,1,1)
 hold on
 plot(t_out/31557600, e_out(:, 1), 'b', 'LineWidth', 1.5, 'DisplayName', 'Earth')
-plot(t_out/31557600, e_out(:, 2), 'r', 'LineWidth', 1.5, 'DisplayName', 'Mars')
 
 xlabel('Time [yr]')
 ylabel('Eccentricity [-]')
@@ -134,7 +132,6 @@ hold off
 subplot(2,1,2)
 hold on
 plot(t_out/31557600, a_out(:, 1)/AU, 'b', 'LineWidth', 1.5, 'DisplayName','Earth')
-plot(t_out/31557600, a_out(:, 2)/AU, 'r', 'LineWidth', 1.5, 'DisplayName','Mars')
 
 xlabel('Time [yr]')
 ylabel('Semi-major axis [AU]')
@@ -153,15 +150,15 @@ dv_abs(sun_idx) = [];
 
 figure;
 
-subplot(2,1,1)
+subplot(2,2,1)
 plot_log_stem(dr_rel, names, 'Relative error [-]', 'Relative error of position');
-% 
+
 subplot(2,2,2)
 plot_log_stem(dv_rel, names, 'Relative error [-]', 'Relative error of velocity');
 
-subplot(2,1,2)
+subplot(2,2,3)
 plot_log_stem(dr_abs, names, 'Absolute error [m]', 'Absolute error of position');
-% 
+
 subplot(2,2,4)
 plot_log_stem(dv_abs, names, 'Absolute error [m/s]', 'Absolute error of velocity');
 
@@ -356,7 +353,8 @@ function h = plot_log_stem(data, names, y_label, plot_title)
     ylabel(y_label);
     title(plot_title);
     grid on;
-    set(gca, 'YScale', 'log'); 
+    set(gca, 'YScale', 'log');
+    set(gca, 'TickLabelInterpreter', 'none');
     
     min_real = min(data);
     max_real = max(data);
