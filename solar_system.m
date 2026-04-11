@@ -167,11 +167,19 @@ sgtitle(sprintf('Error analysis of PEFRL integrator | dt = %d s | T_{sim} = %.2f
 %% Local functions
 
 function y_out = integrate_PEFRL(y_in, dt, num_steps, body_mu, body_pole_vectors, K_J2)
-    
+    mu = body_mu(:).';
     y_out = zeros(num_steps+1, size(y_in, 2));
     y_out(1,:) = y_in;
     rv = reshape(y_in, 6, []);
-    mu = body_mu(:).'; 
+
+    pole_j = reshape(body_pole_vectors, 3, 1, []);
+    K_J2_j = reshape(K_J2, 1, 1, []);
+    mu_j   = reshape(mu, 1, 1, []);
+
+    pole_i = reshape(body_pole_vectors, 3, [], 1);
+    J2_ratio = K_J2 ./ mu;
+    J2_ratio(mu == 0) = 0;
+    J2_ratio_i = reshape(J2_ratio, 1, [], 1) .* mu_j;
 
     r = rv(1:3,:);
     v = rv(4:6,:);
@@ -188,18 +196,39 @@ function y_out = integrate_PEFRL(y_in, dt, num_steps, body_mu, body_pole_vectors
     
     for i = 1 : num_steps
         r1 = r + v .* d1;
-        v1 = v + calc_acceleration(r1, mu, body_pole_vectors, K_J2) .* c1;
+        v1 = v + calc_acceleration(r1, mu_j, J2_ratio_i, K_J2_j, pole_i, pole_j) .* c1;
         r2 = r1 + v1 .* d2;
-        v2 = v1 + calc_acceleration(r2, mu, body_pole_vectors, K_J2) .* d3;
+        v2 = v1 + calc_acceleration(r2, mu_j, J2_ratio_i, K_J2_j, pole_i, pole_j) .* d3;
         r3 = r2 + v2 .* c2;
-        v3 = v2 + calc_acceleration(r3 , mu, body_pole_vectors, K_J2) .* d3;
+        v3 = v2 + calc_acceleration(r3, mu_j, J2_ratio_i, K_J2_j, pole_i, pole_j) .* d3;
         r4 = r3 + v3 .* d2;
     
-        v = v3 + calc_acceleration(r4, mu, body_pole_vectors, K_J2) .* c1;
+        v = v3 + calc_acceleration(r4, mu_j, J2_ratio_i, K_J2_j, pole_i, pole_j) .* c1;
         r = r4 + v .* d1;
     
         y_out(i+1, :) = reshape([r;v], 1, []); 
     end
+end
+
+function a = calc_acceleration(r, mu_j, J2_ratio_i, K_J2_j, pole_i, pole_j)
+    r_3d = reshape(r, 3, 1, []); 
+    dr = r_3d - r; % 3 x N x N
+    d2 = sum(dr.^2, 1); % 1 x N x N
+    d2(d2 == 0) = inf;
+
+    inv_d3 = 1 ./ (d2 .* sqrt(d2)); % 1 x N x N 
+    inv_d5 = inv_d3 ./ d2; % 1 x N x N  
+    
+    z_local = sum(dr .* pole_j, 1);
+    z_self  = sum(dr .* pole_i, 1);
+
+    factor_newton = mu_j .* inv_d3; % 1 x N x N
+    
+    factor_J2_direct = K_J2_j .* inv_d5 .* ((5 .* z_local.^2 ./ d2 - 1) .* dr - 2 .* z_local .* pole_j); % 3 x N x N
+    factor_J2_reaction = J2_ratio_i .* inv_d5 .* ((5 .* z_self.^2 ./ d2 - 1) .* dr - 2 .* z_self .* pole_i); % 3 x N x N
+
+    a_3d = factor_newton .* dr + factor_J2_direct + factor_J2_reaction; % 3 x N x N
+    a = sum(a_3d, 3); % 3 x N
 
 end
 
@@ -272,33 +301,6 @@ function [a_out, e_out] = calc_kepler_elements(y_out, body_mu, sun_idx, target_i
 
     e_out = squeeze(vecnorm(e_vec, 2, 2));
 end
-
-
-function a = calc_acceleration(r, mu, body_pole_vectors, K_J2)
-    N = size(r, 2);
-    a = zeros(3, N);
-    
-    for i = 1:N
-        dr = r - r(:, i);
-        d2 = dr(1,:).^2 + dr(2,:).^2 + dr(3,:).^2; 
-        d2(i) = inf; 
-        
-        inv_d3 = 1 ./ (d2 .* sqrt(d2)); 
-        inv_d5 = inv_d3 ./ d2;
-        z_local = sum(dr .* body_pole_vectors, 1);
-
-        factor_newton = mu .* inv_d3;
-        factor_J2_direct = K_J2 .* inv_d5 .* ((5 .* z_local.^2 ./ d2 - 1) .* dr - 2 .*z_local .* body_pole_vectors);
-        z_self = sum(dr .* body_pole_vectors(:, i), 1);
-        factor_J2_reaction = K_J2(i) .* (mu ./ mu(i)) .* inv_d5 .* ((5 .* z_self.^2 ./ d2 - 1) .* dr - 2 .* z_self .* body_pole_vectors(:, i));
-        
-        a(1, i) = sum(dr(1, :) .* factor_newton + factor_J2_direct(1, :) + factor_J2_reaction(1, :));
-        a(2, i) = sum(dr(2, :) .* factor_newton + factor_J2_direct(2, :) + factor_J2_reaction(2, :));
-        a(3, i) = sum(dr(3, :) .* factor_newton + factor_J2_direct(3, :) + factor_J2_reaction(3, :));
-
-    end
-end
-
 
 function [dr_rel, dr_abs, dv_rel, dv_abs] = compare_ephemeris(y_in, bodies, sun_idx)
 
